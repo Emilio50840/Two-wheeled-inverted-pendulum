@@ -15,7 +15,7 @@ void init_motor(){
     timer_conf.timer_num = LEDC_TIMER_0;
     timer_conf.speed_mode = LEDC_LOW_SPEED_MODE;
     timer_conf.freq_hz = PWM_freq;
-    timer_conf.duty_resolution = LEDC_TIMER_10_BIT;
+    timer_conf.duty_resolution = LEDC_TIMER_7_BIT;
     timer_conf.clk_cfg = LEDC_LOW_SPEED_MODE;
     timer_conf.deconfigure = false;
     ESP_ERROR_CHECK(ledc_timer_config(&timer_conf));
@@ -57,11 +57,14 @@ void set_motor(int pwmA, int pwmB){
             gpio_set_level(BIN2, 0);
             stby_flag |= 0x2;
         }
+        /*
         if(stby_flag == 0x3){
             gpio_set_level(STBY_pin, 0);
         }else{
             gpio_set_level(STBY_pin, 1);
         }
+        */
+        gpio_set_level(STBY_pin, 1);
         ledc_set_duty(LEDC_LOW_SPEED_MODE, 0, abs(pwmA));
         ledc_update_duty(LEDC_LOW_SPEED_MODE, 0);
         ledc_set_duty(LEDC_LOW_SPEED_MODE, 1, abs(pwmB));

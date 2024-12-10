@@ -40,7 +40,7 @@ void init_mpu6050(){
     ESP_ERROR_CHECK(i2c_master_transmit(dev_handle, data_wr, 2, 100));
     ESP_LOGI(mpu_tag, "MPU initialized");
 }
-void read_mpu6050(uint16_t *Ax, uint16_t *Gy){
+void read_mpu6050(int16_t *Ax, int16_t *Gy){
     data_wr[0] = 0x3B;
     i2c_master_transmit_receive(dev_handle, data_wr, 1, data_rd, 14, 2);
     *Ax = data_rd[1] | (((int16_t)data_rd[0])<<8);
