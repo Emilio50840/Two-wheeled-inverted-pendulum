@@ -13,8 +13,8 @@ void init_control(control_t *ctrl){
     //ctrl->Xa = 0.0;
     //ctrl->Yg = 0.0;
     //ctrl->alpha = 0.0;
-    ctrl->accelx = 0.15;
-    ctrl->angulox = 0.15;
+    ctrl->accelx = 0.0;
+    ctrl->angulox = 0.0;
     ctrl->c1 = DEF_c1;
     ctrl->c2 = 1.0-DEF_c1;
     ctrl->t = 0.0;
@@ -42,21 +42,21 @@ void calculate_control(control_t *ctrl){
     else if(ctrl->theta < -160.0)
         ctrl->theta = -160.0;
 
-    ctrl->theta=-0.3*ctrl->theta/160.0;	//Error de seguimiento en radianes
+    ctrl->theta=(-0.3*(ctrl->theta))/160.0;	//Error de seguimiento en radianes
 
     // Calulo velocidad derecha en radianes.
-    ctrl->omegar=ctrl->incr*ctrl->esc*ctrl->iTs;
+    ctrl->omegar=(ctrl->incr)*(ctrl->esc)*(ctrl->iTs);
 
     // Calculo velocidad izquierda en radianes.
-    ctrl->omegal=ctrl->incl*ctrl->esc*ctrl->iTs;
+    ctrl->omegal=(ctrl->incl)*(ctrl->esc)*(ctrl->iTs);
 
     // Los valores del MPU los paso a valores flotantes con sus respectivas escalas.
-    ctrl->Xa=-ctrl->Ax*accel_factor;//inclinación en rango de -1 a 1
-    ctrl->Yg=ctrl->Gy*gyro_factor;//Yg en grados sobre segundo
+    ctrl->Xa=-(ctrl->Ax)*accel_factor;//inclinación en rango de -1 a 1
+    ctrl->Yg=(ctrl->Gy)*gyro_factor;//Yg en grados sobre segundo
     ctrl->Yg=deg_2_rad*ctrl->Yg;//Yg en rad sobre segundo
 // Calculo de filtro complementario
     ctrl->accelx=ctrl->Xa*pi_s2;//inclinación en rango de -pi/2 a pi/2 rad
-    ctrl->angulox=ctrl->c1*(ctrl->angulox_1+ctrl->Yg*Ts)+ctrl->c2*ctrl->accelx;//ecuación del filtro complementario
+    ctrl->angulox=ctrl->c1*(ctrl->angulox_1+(ctrl->Yg*Ts))+(ctrl->c2*ctrl->accelx);//ecuación del filtro complementario
     ctrl->angulox_1=ctrl->angulox;//respaldando valor pasado
     ctrl->alpha=-ctrl->angulox;
     ctrl->alpha=ctrl->alpha-calpha;//compensación de alineación de IMU
@@ -74,7 +74,7 @@ void calculate_control(control_t *ctrl){
     ctrl->alpha_1=ctrl->alpha;
     ctrl->vtil=ctrl->v-ctrl->vd;								// v tilde
     if((ctrl->intvtil<ctrl->v2tauM)&&(ctrl->intvtil>(-ctrl->v2tauM)))		//Integral de v tilde
-        ctrl->intvtil=ctrl->intvtil+Ts*ctrl->vtil;
+        ctrl->intvtil=ctrl->intvtil+(Ts*ctrl->vtil);
     else
     {
         if(ctrl->intvtil>=ctrl->v2tauM)
@@ -84,7 +84,7 @@ void calculate_control(control_t *ctrl){
     }
 // Esfuerzos de control	
     ctrl->taua=(-ctrl->kv*ctrl->thetap-ctrl->kp*ctrl->thetatil)*2*b/R;
-    ctrl->u=ctrl->k1*ctrl->alphap+ctrl->k2*ctrl->alpha+ctrl->k3*ctrl->vtil+ctrl->k4*ctrl->intvtil;
+    ctrl->u=(ctrl->k1*ctrl->alphap)+(ctrl->k2*ctrl->alpha)+(ctrl->k3*ctrl->vtil)+(ctrl->k4*ctrl->intvtil);
     if(ctrl->u>=ctrl->v2tauM)
         ctrl->u=ctrl->v2tauM;
     else if(ctrl->u<=(-ctrl->v2tauM))
@@ -95,7 +95,7 @@ void calculate_control(control_t *ctrl){
     ctrl->taul=(-ctrl->taua+ctrl->u)/2.0;  // par izquierdo
                     
 // Voltaje rueda izquierda
-    ctrl->ul=ctrl->taul*ctrl->Rasnkm+ctrl->nkm*ctrl->omegal;	
+    ctrl->ul=(ctrl->taul*ctrl->Rasnkm)+(ctrl->nkm*ctrl->omegal);	
     //ctrl->ul=uNM*sinf(0.628*ctrl->t);
     //ul=0;
     //ul=2.5;
@@ -107,14 +107,14 @@ void calculate_control(control_t *ctrl){
     
         
 // Voltaje rueda derecha    
-    ctrl->ur=ctrl->taur*ctrl->Rasnkm+ctrl->nkm*ctrl->omegar;
+    ctrl->ur = (ctrl->taur*ctrl->Rasnkm)+(ctrl->nkm*ctrl->omegar);
     //ctrl->ur=uNM*sin(0.628*ctrl->t);
     //ur=0;
     //ur=2.5;
-    if(ctrl->ur>=uNM)
-        ctrl->ur=uNM;
-    else if(ctrl->ur<=(-uNM))
-        ctrl->ur=-uNM;
-    ctrl->uWr = ctrl->ur*ctrl->escs;
-    ctrl->t=ctrl->t+Ts;
+    if(ctrl->ur >=uNM)
+        ctrl->ur = uNM;
+    else if(ctrl->ur <= (-uNM))
+        ctrl->ur = -uNM;
+    ctrl->uWr = ctrl->ur * ctrl->escs;
+    ctrl->t += Ts;
 }

@@ -4,18 +4,21 @@
 
 #define DEF_vd 0.075
 
-#define DEF_k1 0.05
-#define DEF_k2 2.0
+#define DEF_k1 0.004//0.1474//0.05
+#define DEF_k2 0.80//2.0
 #define DEF_k3 0.9
-#define DEF_k4 1.2
+#define DEF_k4 0.009
 
 #define DEF_kp 0.04
 #define DEF_kv 0.004
 
+
+#define calpha 0.1//0.2
+
 //Parámetros, rangos y factores
-#define tauM	0.4//0.3//0.1654	//par máximo en rueda [Nm]
+#define tauM	0.5//0.3//0.1654	//par máximo en rueda [Nm]
 #define alphaM	1.4//1.57
-#define omegaM	9.7
+#define omegaM	12.7
 #define uM		11.0
 #define uNM		11.0
 
@@ -24,21 +27,19 @@
 #define pi_     3.141593
 #define pi_s2   1.570796
 #define Ra      3.0
-#define NR      34.0//15.5//34.014
-#define R	    0.067//0.035
+#define NR      34.0//34.0//15.5//34.014
+#define R	    0.0335//0.033
 #define km      0.0008//0.01186
-#define Cz	    0.0485
-#define Mp	    0.4580
-#define b	    0.0965
+#define Cz	    0.0936//0.0485
+#define Mp	    0.3//0.4310//0.4580
+#define b	    0.08725//0.0965
 
-#define calpha 0.10//0.2
-
-#define deg_2_rad 			pi_/180.0
-#define rad_2_deg 			180.0/pi_
+#define deg_2_rad 			(pi_ / 180.0)
+#define rad_2_deg 			(180.0 / pi_)
 #define accel_div_factor 	16384.0
 #define gyro_div_factor 	131.0
-#define accel_factor 		1.0/accel_div_factor
-#define gyro_factor 		1.0/gyro_div_factor
+#define accel_factor 		6.103515625e-05
+#define gyro_factor 		0.007633587786259542
 
 #define DEF_c1 0.995
 
