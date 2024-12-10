@@ -23,7 +23,7 @@ void init_mpu6050(){
     ESP_ERROR_CHECK(i2c_master_bus_add_device(bus_handle, &dev_cfg, &dev_handle));
     ESP_LOGI(mpu_tag, "Registering I2C device");
     ESP_LOGI(mpu_tag, "Configuring mpu6050 registers");
-    /*
+    //*/
     data_wr[0] = 0x1A;
     data_wr[1] = 0x2;
     ESP_ERROR_CHECK(i2c_master_transmit(dev_handle, data_wr, 2, 100));
@@ -39,8 +39,7 @@ void init_mpu6050(){
     data_wr[0] = 0x1B;
     data_wr[1] = 0x0;
     ESP_ERROR_CHECK(i2c_master_transmit(dev_handle, data_wr, 2, 100));
-    ESP_LOGI(mpu_tag, "MPU initialized");
-    //*/
+    /*/
     data_wr[0] = 0x6B;
     data_wr[1] = 0x80;
     ESP_ERROR_CHECK(i2c_master_transmit(dev_handle, data_wr, 2, 100));
@@ -53,6 +52,7 @@ void init_mpu6050(){
     data_wr[0] = 0x1B;
     data_wr[1] = 0x00;
     ESP_ERROR_CHECK(i2c_master_transmit(dev_handle, data_wr, 2, 100));
+    //*/
     ESP_LOGI(mpu_tag, "MPU initialized");
 }
 void read_mpu6050(int16_t *Ax, int16_t *Gy){
