@@ -9,8 +9,8 @@
 
 static const char encoder_tag[] = "encoder";
 
-//#define INVERT_ENCODER_A
-//#define INVERT_ENCODER_B
+#define INVERT_ENCODER_A
+#define INVERT_ENCODER_B
 
 #define ENC_A1   14
 #define ENC_A2   15

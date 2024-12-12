@@ -16,5 +16,5 @@ static i2c_master_dev_handle_t dev_handle;
 static uint8_t data_wr[2] , data_rd[14] = {0};
 
 void init_mpu6050();
-void read_mpu6050(int16_t *Ax, int16_t *Gy);
+void read_mpu6050(uint8_t data[14]);
 #endif

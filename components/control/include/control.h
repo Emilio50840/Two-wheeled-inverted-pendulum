@@ -4,10 +4,10 @@
 
 #define DEF_vd 0.075
 
-#define DEF_k1 0.004//0.1474//0.05
-#define DEF_k2 0.80//2.0
-#define DEF_k3 0.9
-#define DEF_k4 0.009
+#define DEF_k1 0.046//0.023//0.1474//0.05
+#define DEF_k2 1.94//1.80//2.0
+#define DEF_k3 1.3//1.3
+#define DEF_k4 0.05//0.0257
 
 #define DEF_kp 0.04
 #define DEF_kv 0.004
