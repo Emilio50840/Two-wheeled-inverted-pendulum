@@ -19,24 +19,31 @@
 #include "lwip/sockets.h"
 #include "lwip/sys.h"
 #include <lwip/netdb.h>
+#include <string.h>
 
 #include "motor.h"
 #include "mpu6050.h"
 #include "control.h"
 
+#include "driver/uart.h"
+
+//#define EMBEBIDO
+
 const char TAG[] = "balancin";
 
-#define BUF_SIZE 8
+#define BUF_SIZE 512
 #define PACKET_SIZE 9
 
-#define TXD_PIN (GPIO_NUM_4)
-#define RXD_PIN (GPIO_NUM_5)
+#define TXD_PIN (GPIO_NUM_47)
+#define RXD_PIN (GPIO_NUM_21)
 
 
 #define PORT                        4545
 #define KEEPALIVE_IDLE              5
 #define KEEPALIVE_INTERVAL          5
 #define KEEPALIVE_COUNT             3
+
+#define RATIO 0.25
 
 const uint8_t wifi_ssid[] = "balancin";
 const uint8_t wifi_pass[] = "1q2w3e4r";
@@ -57,6 +64,8 @@ static void control_timer( TimerHandle_t xTimer );
 static void wifi_event_handler(void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data);
 static void tcp_server_task(void *pvParameters);
 static void TCP_receive(const int sock);
+void init_uart(void);
+
 
 void app_main(void)
 {
@@ -66,6 +75,7 @@ void app_main(void)
     init_encoder();
     init_motor();
     init_mpu6050();
+    init_uart();
     init_control(&ctrl);
     printf("Ready to start\r\n");
     /*/
@@ -88,6 +98,7 @@ void app_main(void)
         /* Callback function to be used by the software timer being created. */
                                      control_timer );
     xTimerStart(control_timer_h, 0);
+    //calculate_control(&ctrl);
     /*
     while (1) {
         read_encoder(&encoderA, &encoderB);
@@ -112,76 +123,93 @@ void app_main(void)
 
 static void control_timer( TimerHandle_t xTimer ){
     
-    //set_motor(1023, 1023);
-    int Ax_avg, Gy_avg;
-    Ax_avg = 0;
-    Gy_avg = 0;
 
     read_adc(adc_read);
+    ESP_LOGI(TAG, "[0]: %u\t[1]: %u\t[2]: %u\t[3]: %u\t[4]: %u\t[5]: %u\t[6]: %u\t[7]: %u\t",adc_read[0] ,adc_read[1] ,adc_read[2] ,adc_read[3] ,adc_read[4] ,adc_read[5] ,adc_read[6] ,adc_read[7] );
+    int sr,sl;
+    sr = (int)(((float)adc_read[3]*RATIO)+((float)adc_read[2]*(1-RATIO)));
+    sl = (int)(((float)adc_read[4]*RATIO)+((float)adc_read[5]*(1-RATIO)));
     uint8_t mpu_data[14];
     read_mpu6050(mpu_data);
     Ax = mpu_data[1] + (((int16_t)mpu_data[0])<<8);
     Gy = mpu_data[11] + (((int16_t)mpu_data[10])<<8);
-    /*
-    for (int i = 0; i < 10; i++) {
-        read_mpu6050(&Ax, &Gy);
-        Ax_avg += Ax;
-        Gy_avg += Gy;
-    }
 
-    Ax = Ax_avg / 10;
-    Gy = Gy_avg / 10;
-    */
+
     read_encoder(&encoderA, &encoderB);
-    ctrl.sl = (float)(adc_read[3]);
-    ctrl.sr = (float)(adc_read[4]);
+
+    //printf("encA: %i\tencB: %i\tAx: %i\tGy: %i\tA[1]: %u\tA[2]:%u\r\n", encoderA, encoderB, Ax, Gy, adc_read[3], adc_read[4]);
+    ctrl.sl = (float)(adc_read[3]>>2);
+    ctrl.sr = (float)(adc_read[4]>>2);
     ctrl.Ax = (float)Ax;
     ctrl.Gy = (float)Gy;
-    ctrl.incl = (float) encoderA;
-    ctrl.incr = (float) encoderB;
+    ctrl.incl = (float) -encoderA;
+    ctrl.incr = (float) -encoderB;
+    //ESP_LOGI(TAG, "incr: %f\tencoderB: %i", ctrl.incr, encoderB);
+
+    uint8_t packet[9];
+    packet[0] = 0xAA;
+
+    #ifdef EMBEBIDO
+
+    
+    
+    #else
+    /*/
+    if(encoderB > 127){
+        packet[1] = 127;
+    }else if(encoderB < -128){
+        packet[1] = -128;
+    }else{
+        packet[1] = (int8_t) (encoderB);
+    }
+    //*/
+    if(encoderB > 127){
+        packet[1] = 255;
+    }else if(encoderB < -128){
+        packet[1] = 0;
+    }else{
+        packet[1] = (int8_t) (encoderB + 127);
+    }
+    /*/
+    if(encoderA > 127){
+        packet[2] = 127;
+    }else if(encoderA < -128){
+        packet[2] = -128;
+    }else{
+        packet[2] = (int8_t) (encoderA);
+    }
+    //*/
+    if(encoderA > 127){
+        packet[2] = 255;
+    }else if(encoderA < -128){
+        packet[2] = 0;
+    }else{
+        packet[2] = (int8_t) (encoderA + 127);
+    }
+    //*/
+    //packet[2] = (int8_t) (encoderA);
+    packet[3] = mpu_data[0];
+    packet[4] = mpu_data[1];
+    packet[5] = mpu_data[10];
+    packet[6] = mpu_data[11];
+    packet[7] = (uint8_t)(adc_read[3]>>2);
+    packet[8] = (uint8_t)(adc_read[4]>>2);
+    //packet[7] = (uint8_t)(sr>>2);
+    //packet[8] = (uint8_t)(sl>>2);
+    #endif
+    
     if(xEventGroupGetBits(xTcpEventGroup) & 0x1){
-        uint8_t packet[9];
-        packet[0] = 0xAA;
-        /*/
-        if(encoderB > 127){
-            packet[1] = 127;
-        }else if(encoderB < -128){
-            packet[1] = -128;
-        }else{
-            packet[1] = (int8_t) (encoderB);
-        }
-        //*/
-        if(encoderB > 127){
-            packet[1] = 255;
-        }else if(encoderB < -128){
-            packet[1] = 0;
-        }else{
-            packet[1] = (int8_t) (encoderB + 127);
-        }
-        /*/
-        if(encoderA > 127){
-            packet[2] = 127;
-        }else if(encoderA < -128){
-            packet[2] = -128;
-        }else{
-            packet[2] = (int8_t) (encoderA);
-        }
-        //*/
-        if(encoderA > 127){
-            packet[2] = 255;
-        }else if(encoderA < -128){
-            packet[2] = 0;
-        }else{
-            packet[2] = (int8_t) (encoderA + 127);
-        }
-        //*/
-        //packet[2] = (int8_t) (encoderA);
-        packet[3] = mpu_data[0];
-        packet[4] = mpu_data[1];
-        packet[5] = mpu_data[10];
-        packet[6] = mpu_data[11];
-        packet[7] = (uint8_t)(adc_read[4]>>2);
-        packet[8] = (uint8_t)(adc_read[3]>>2);
+        calculate_control(&ctrl);
+        packet[1] = ctrl.vdg;
+        packet[2] = ctrl.vg;
+        packet[3] = ctrl.thetag;
+        packet[4] = ctrl.alphag;
+        packet[5] = ctrl.omegalg;
+        packet[6] = ctrl.omegarg;
+        packet[7] = ctrl.ulg;
+        packet[8] = ctrl.urg;
+        set_motor(ctrl.uWl, ctrl.uWr);
+        
         int to_write = 9;
         while (to_write > 0) {
             int written = send(connection_sock, packet + (PACKET_SIZE - to_write), to_write, 0);
@@ -192,13 +220,38 @@ static void control_timer( TimerHandle_t xTimer ){
             }
             to_write -= written;
         }
+    }else {
+        set_motor(0, 0);
+        init_control(&ctrl);
     }
+    uart_write_bytes(UART_NUM_1, packet, sizeof(packet));
     
-    calculate_control(&ctrl);
+    
     //vTaskDelay(pdMS_TO_TICKS(5));
-    //set_motor((int)ctrl.uWl, (int)ctrl.uWr);
     //printf("Alpha: %f\tTheta: %f\tuWl: %f\tuWr: %f\til: %f\tir: %f\r\n",ctrl.alpha, ctrl.theta, ctrl.uWl, ctrl.uWr, ctrl.incl, ctrl.incr);
-    //printf("encA: %i\tencB: %i\tAx: %i\tGy: %i\tA[1]: %u\tA[2]:%u\r\n", encoderA, encoderB, Ax, Gy, adc_read[3], adc_read[4]);
+    
+    uint8_t rx_buffer[32];
+    int rxBytes = uart_read_bytes(UART_NUM_1, rx_buffer, sizeof(rx_buffer), 5);
+#ifndef EMBEBIDO
+
+    int pwmA, pwmB;
+    if (rxBytes >= 2) {
+        if(rx_buffer[0] > 128){
+            pwmA = -(rx_buffer[rxBytes-2] - 128);
+        }else{
+            pwmA = rx_buffer[0];
+        }
+        if(rx_buffer[1] > 128){
+            pwmB = -(rx_buffer[rxBytes-1] - 128);
+        }else{
+            pwmB = rx_buffer[1];
+        }
+        set_motor(pwmA, pwmB);
+    }else {
+        set_motor(0, 0);
+    }
+#endif 
+    
 }
 
 void init_wifi(){
@@ -378,6 +431,7 @@ static void TCP_receive(int sock)
             }
             printf("\r\n");
             //*/
+#ifndef EMBEBIDO
             int pwmA, pwmB;
             if(rx_buffer[0] > 128){
                 pwmA = -(rx_buffer[0] - 128);
@@ -390,9 +444,28 @@ static void TCP_receive(int sock)
                 pwmB = rx_buffer[1];
             }
             set_motor(pwmA, pwmB);
+#endif
         }
+
     } while (len > 0);
+
     xEventGroupClearBits( xTcpEventGroup,
                                 0x1 );
     //socket_active = 0;
+}
+
+void init_uart(void)
+{
+    const uart_config_t uart_config = {
+        .baud_rate = 115200,
+        .data_bits = UART_DATA_8_BITS,
+        .parity = UART_PARITY_DISABLE,
+        .stop_bits = UART_STOP_BITS_1,
+        .flow_ctrl = UART_HW_FLOWCTRL_DISABLE,
+        .source_clk = UART_SCLK_DEFAULT,
+    };
+    // We won't use a buffer for sending data.
+    uart_driver_install(UART_NUM_1, BUF_SIZE * 2, 0, 0, NULL, 0);
+    uart_param_config(UART_NUM_1, &uart_config);
+    uart_set_pin(UART_NUM_1, TXD_PIN, RXD_PIN, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
 }
