@@ -27,7 +27,7 @@
 
 #include "driver/uart.h"
 
-//#define EMBEBIDO
+#define EMBEBIDO
 
 const char TAG[] = "balancin";
 
