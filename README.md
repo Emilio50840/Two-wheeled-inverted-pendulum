@@ -48,14 +48,13 @@ Before starting, ensure you have the following:
    cd two-wheeled-pendulum
    ```
 
-2. Configure your ESP-IDF environment:
-    ```bash
-    idf.py set-target esp32s3
-    ```
-
-3. Build and flash the firmware:
+2. Build the firmware:
     ```bash
     idf.py build
+    ```
+
+3. Flash the firmware:
+    ```bash
     idf.py flash
     ```
 
