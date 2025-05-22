@@ -8,10 +8,10 @@
 
 static const char adc_tag[] = "ADC";
 
-#define PIN_NUM_MISO      41
-#define PIN_NUM_MOSI      40
-#define PIN_NUM_CLK       42
-#define PIN_NUM_CS        39
+#define PIN_NUM_MISO      18
+#define PIN_NUM_MOSI      19
+#define PIN_NUM_CLK       5
+#define PIN_NUM_CS        21
 
 static spi_device_handle_t spi_handle;
 

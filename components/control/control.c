@@ -56,7 +56,7 @@ void calculate_control(control_t *ctrl){
     //printf("sr: %f\r\n", ctrl->sr);
     //ctrl->sl = 120;
     //printf("sl: %f\r\n", ctrl->sl);
-    //ctrl->theta = ctrl->sr - ctrl->sl;
+    ctrl->theta = ctrl->sr - ctrl->sl;
     //printf("theta: %f\r\n", ctrl->theta);
     if(ctrl->theta > 160.0)
         ctrl->theta = 160.0;
@@ -143,7 +143,7 @@ void calculate_control(control_t *ctrl){
     //printf("ul: %f\r\n", ctrl->ul);
     //ctrl->ul=uNM*sinf(0.628*ctrl->t);
     //ctrl->ul=0;
-    //ctrl->ul=10.0;
+    //ctrl->ul=5.0;
     if(ctrl->ul>=uNM)
         ctrl->ul=uNM;
     else if(ctrl->ul<=(-uNM))

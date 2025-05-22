@@ -1,11 +1,13 @@
 #include <math.h>
 #include <stdio.h>
-#include "adc.h"
-#include "encoder.h"
+
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/idf_additions.h"
 #include "freertos/projdefs.h"
+
+#include "hal/adc_types.h"
+#include "esp_adc/adc_oneshot.h"
 
 #include "esp_wifi.h"
 #include "esp_mac.h"
@@ -24,19 +26,23 @@
 #include "motor.h"
 #include "mpu6050.h"
 #include "control.h"
+//#include "adc.h"
+#include "encoder.h"
 
 #include "driver/uart.h"
 
-#define EMBEBIDO
+//#define EMBEBIDO
 
 const char TAG[] = "balancin";
 
 #define BUF_SIZE 512
 #define PACKET_SIZE 9
 
-#define TXD_PIN (GPIO_NUM_47)
-#define RXD_PIN (GPIO_NUM_21)
+#define TXD_PIN (GPIO_NUM_22)
+#define RXD_PIN (GPIO_NUM_23)
 
+#define ADC1 35
+#define ADC2 36
 
 #define PORT                        4545
 #define KEEPALIVE_IDLE              5
@@ -51,6 +57,10 @@ const int  wifi_chan   = 1;
 const int  wifi_conn   = 3;
 
 volatile int connection_sock, socket_active = 0;
+
+adc_oneshot_unit_handle_t ADC_unit;
+adc_unit_t adc_unit;
+adc_channel_t adc1, adc2;
 
 control_t ctrl;
 TimerHandle_t control_timer_h = NULL;
@@ -71,13 +81,35 @@ void app_main(void)
 {
     init_wifi();
     xTaskCreate(tcp_server_task, "tcp_server", 4096, (void*)AF_INET, configMAX_PRIORITIES - 2, NULL);
-    init_adc();
+    //init_adc();
     init_encoder();
     init_motor();
     init_mpu6050();
     init_uart();
     init_control(&ctrl);
+
+    adc_oneshot_unit_init_cfg_t init_config = {
+        .unit_id = ADC_UNIT_1,
+        .clk_src = ADC_RTC_CLK_SRC_DEFAULT,
+        .ulp_mode = ADC_ULP_MODE_DISABLE
+    };
+    adc_oneshot_new_unit(&init_config, &ADC_unit);
+
+    adc_oneshot_chan_cfg_t config_chan = {
+        .atten = ADC_ATTEN_DB_0,
+        .bitwidth = ADC_BITWIDTH_12
+    };
+
+    adc_oneshot_io_to_channel(ADC1, &adc_unit, &adc1);
+    adc_oneshot_io_to_channel(ADC2, &adc_unit, &adc2);
+
+    adc_oneshot_config_channel(ADC_unit, adc1, &config_chan);
+    adc_oneshot_config_channel(ADC_unit, adc2, &config_chan);
+    ESP_LOGI(TAG, "Channel_%i, Channel_%i", adc1, adc2);
+
     printf("Ready to start\r\n");
+
+    
     /*/
     while(1){
         char c = getchar();
@@ -124,11 +156,15 @@ void app_main(void)
 static void control_timer( TimerHandle_t xTimer ){
     
 
-    read_adc(adc_read);
-    ESP_LOGI(TAG, "[0]: %u\t[1]: %u\t[2]: %u\t[3]: %u\t[4]: %u\t[5]: %u\t[6]: %u\t[7]: %u\t",adc_read[0] ,adc_read[1] ,adc_read[2] ,adc_read[3] ,adc_read[4] ,adc_read[5] ,adc_read[6] ,adc_read[7] );
+    //read_adc(adc_read);
+    //ESP_LOGI(TAG, "[0]: %u\t[1]: %u\t[2]: %u\t[3]: %u\t[4]: %u\t[5]: %u\t[6]: %u\t[7]: %u\t",adc_read[0] ,adc_read[1] ,adc_read[2] ,adc_read[3] ,adc_read[4] ,adc_read[5] ,adc_read[6] ,adc_read[7] );
+
     int sr,sl;
-    sr = (int)(((float)adc_read[3]*RATIO)+((float)adc_read[2]*(1-RATIO)));
-    sl = (int)(((float)adc_read[4]*RATIO)+((float)adc_read[5]*(1-RATIO)));
+    adc_oneshot_read(ADC_unit, adc1, &sr);
+    adc_oneshot_read(ADC_unit, adc2, &sl);
+    // sr = (int)(((float)adc_read[3]*RATIO)+((float)adc_read[2]*(1-RATIO)));
+    // sl = (int)(((float)adc_read[4]*RATIO)+((float)adc_read[5]*(1-RATIO)));
+    //ESP_LOGI(TAG, "Sr=%i\tSl=%i", sr>>4, sl>>4);
     uint8_t mpu_data[14];
     read_mpu6050(mpu_data);
     Ax = mpu_data[1] + (((int16_t)mpu_data[0])<<8);
@@ -138,8 +174,8 @@ static void control_timer( TimerHandle_t xTimer ){
     read_encoder(&encoderA, &encoderB);
 
     //printf("encA: %i\tencB: %i\tAx: %i\tGy: %i\tA[1]: %u\tA[2]:%u\r\n", encoderA, encoderB, Ax, Gy, adc_read[3], adc_read[4]);
-    ctrl.sl = (float)(adc_read[3]>>2);
-    ctrl.sr = (float)(adc_read[4]>>2);
+    ctrl.sl = (float)(sl>>4);
+    ctrl.sr = (float)(sr>>4);
     ctrl.Ax = (float)Ax;
     ctrl.Gy = (float)Gy;
     ctrl.incl = (float) -encoderA;

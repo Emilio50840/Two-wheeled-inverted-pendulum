@@ -24,7 +24,7 @@
 #define uNM		11.0
 
 #define Ts      0.01
-#define ppr     7.0
+#define ppr     48.0
 #define pi_     3.141593
 #define pi_s2   1.570796
 #define Ra      3.0
