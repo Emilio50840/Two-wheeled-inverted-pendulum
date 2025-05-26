@@ -1,5 +1,5 @@
 #include <stdio.h>
-#include "adc.h"
+#include "spi_adc.h"
 
 void init_adc(){
     spi_bus_config_t spi_bus_conf = {

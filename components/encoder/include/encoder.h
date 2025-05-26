@@ -22,8 +22,8 @@ static const char encoder_tag[] = "encoder";
 
 //static int encoderA, encoderB;
 
-static pcnt_unit_handle_t pcntA_unit, pcntB_unit;
-static pcnt_channel_handle_t pcntA1_chan = NULL, pcntA2_chan = NULL, pcntB1_chan = NULL, pcntB2_chan = NULL;
+extern pcnt_unit_handle_t pcntA_unit, pcntB_unit;
+extern pcnt_channel_handle_t pcntA1_chan, pcntA2_chan, pcntB1_chan, pcntB2_chan;
 
 void init_encoder();
 void read_encoder(int *encoderA, int *encoderB);

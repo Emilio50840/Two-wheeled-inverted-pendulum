@@ -12,8 +12,8 @@ static const char mpu_tag[] = "mpu";
 #define PIN_I2C_SDA GPIO_NUM_4
 #define PIN_I2C_SCL GPIO_NUM_17
 
-static i2c_master_dev_handle_t dev_handle;
-static uint8_t data_wr[2] , data_rd[14] = {0};
+extern i2c_master_dev_handle_t dev_handle;
+extern uint8_t data_wr[2] , data_rd[14];
 
 void init_mpu6050();
 void read_mpu6050(uint8_t data[14]);

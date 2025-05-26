@@ -1,6 +1,9 @@
 #include <stdio.h>
 #include "encoder.h"
 
+pcnt_unit_handle_t pcntA_unit, pcntB_unit;
+pcnt_channel_handle_t pcntA1_chan = NULL, pcntA2_chan = NULL, pcntB1_chan = NULL, pcntB2_chan = NULL;
+
 void init_encoder(){
     pcnt_unit_config_t unit_config = { 
         .high_limit = PCNT_HIGH_LIMIT,

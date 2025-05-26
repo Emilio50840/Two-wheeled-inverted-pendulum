@@ -2,6 +2,9 @@
 #include "mpu6050.h"
 #include "esp_log.h"
 
+i2c_master_dev_handle_t dev_handle;
+uint8_t data_wr[2] , data_rd[14] = {0};
+
 void init_mpu6050(){
     i2c_master_bus_config_t i2c_mst_config = {
     .clk_source = I2C_CLK_SRC_DEFAULT,

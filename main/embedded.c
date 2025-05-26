@@ -6,61 +6,23 @@
 #include "freertos/idf_additions.h"
 #include "freertos/projdefs.h"
 
-#include "hal/adc_types.h"
-#include "esp_adc/adc_oneshot.h"
-
-#include "esp_wifi.h"
-#include "esp_mac.h"
-#include "esp_wifi.h"
-#include "esp_system.h"
-#include "esp_event.h"
-#include "esp_log.h"
-#include "nvs_flash.h"
-
-#include "lwip/err.h"
-#include "lwip/sockets.h"
-#include "lwip/sys.h"
-#include <lwip/netdb.h>
-#include <string.h>
-
+#include "wifi_tcp.h"
 #include "motor.h"
 #include "mpu6050.h"
-#include "control.h"
-//#include "adc.h"
+#include "internal_adc.h"
 #include "encoder.h"
-
-#include "driver/uart.h"
+#include "uart.h"
+#include "control.h"
 
 //#define EMBEBIDO
 
 const char TAG[] = "balancin";
 
-#define BUF_SIZE 512
-#define PACKET_SIZE 9
-
-#define TXD_PIN (GPIO_NUM_22)
-#define RXD_PIN (GPIO_NUM_23)
-
-#define ADC1 35
-#define ADC2 36
-
-#define PORT                        4545
-#define KEEPALIVE_IDLE              5
-#define KEEPALIVE_INTERVAL          5
-#define KEEPALIVE_COUNT             3
-
-#define RATIO 0.25
-
-const uint8_t wifi_ssid[] = "balancin";
-const uint8_t wifi_pass[] = "1q2w3e4r";
-const int  wifi_chan   = 1;
-const int  wifi_conn   = 3;
+#define BUF_SIZE 256
 
 volatile int connection_sock, socket_active = 0;
 
-adc_oneshot_unit_handle_t ADC_unit;
-adc_unit_t adc_unit;
-adc_channel_t adc1, adc2;
+
 
 control_t ctrl;
 TimerHandle_t control_timer_h = NULL;
@@ -69,42 +31,37 @@ int encoderA, encoderB;
 int16_t Ax, Gy;
 uint16_t adc_read[8];
 
-void init_wifi();
+void TCP_receive(const int sock);
 static void control_timer( TimerHandle_t xTimer );
-static void wifi_event_handler(void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data);
-static void tcp_server_task(void *pvParameters);
-static void TCP_receive(const int sock);
-void init_uart(void);
+
 
 
 void app_main(void)
 {
     init_wifi();
-    xTaskCreate(tcp_server_task, "tcp_server", 4096, (void*)AF_INET, configMAX_PRIORITIES - 2, NULL);
-    //init_adc();
+    xTaskCreate(tcp_server_task, "tcp_server", 4096, (void*)AF_INET, 17, NULL);
+    init_internal_adc();
     init_encoder();
     init_motor();
     init_mpu6050();
     init_uart();
     init_control(&ctrl);
 
-    adc_oneshot_unit_init_cfg_t init_config = {
-        .unit_id = ADC_UNIT_1,
-        .clk_src = ADC_RTC_CLK_SRC_DEFAULT,
-        .ulp_mode = ADC_ULP_MODE_DISABLE
-    };
-    adc_oneshot_new_unit(&init_config, &ADC_unit);
+    xTcpEventGroup = xEventGroupCreate();
 
-    adc_oneshot_chan_cfg_t config_chan = {
-        .atten = ADC_ATTEN_DB_0,
-        .bitwidth = ADC_BITWIDTH_12
-    };
-
-    adc_oneshot_io_to_channel(ADC1, &adc_unit, &adc1);
-    adc_oneshot_io_to_channel(ADC2, &adc_unit, &adc2);
-
-    adc_oneshot_config_channel(ADC_unit, adc1, &config_chan);
-    adc_oneshot_config_channel(ADC_unit, adc2, &config_chan);
+    /* Was the event group created successfully? */
+    if( xTcpEventGroup == NULL )
+    {
+        /* The event group was not created because there was insufficient
+           FreeRTOS heap available. */
+        ESP_LOGE(TAG, "Error creating event group");
+    }
+    else
+    {
+        ESP_LOGI(TAG, "Event group was created successfully");
+        /* The event group was created. */
+    }
+    
     ESP_LOGI(TAG, "Channel_%i, Channel_%i", adc1, adc2);
 
     printf("Ready to start\r\n");
@@ -260,14 +217,14 @@ static void control_timer( TimerHandle_t xTimer ){
         set_motor(0, 0);
         init_control(&ctrl);
     }
-    uart_write_bytes(UART_NUM_1, packet, sizeof(packet));
+    uart_write_bytes(UART_PORT, packet, sizeof(packet));
     
     
     //vTaskDelay(pdMS_TO_TICKS(5));
     //printf("Alpha: %f\tTheta: %f\tuWl: %f\tuWr: %f\til: %f\tir: %f\r\n",ctrl.alpha, ctrl.theta, ctrl.uWl, ctrl.uWr, ctrl.incl, ctrl.incr);
     
     uint8_t rx_buffer[32];
-    int rxBytes = uart_read_bytes(UART_NUM_1, rx_buffer, sizeof(rx_buffer), 5);
+    int rxBytes = uart_read_bytes(UART_PORT, rx_buffer, sizeof(rx_buffer), 5);
 #ifndef EMBEBIDO
 
     int pwmA, pwmB;
@@ -290,158 +247,9 @@ static void control_timer( TimerHandle_t xTimer ){
     
 }
 
-void init_wifi(){
-    esp_err_t ret = nvs_flash_init();
-    if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
-        ESP_ERROR_CHECK(nvs_flash_erase());
-        ESP_ERROR_CHECK(nvs_flash_init());
-    }
-    ESP_ERROR_CHECK(esp_netif_init());
-    ESP_ERROR_CHECK(esp_event_loop_create_default());
-    esp_netif_create_default_wifi_ap();
 
-    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
-    ESP_ERROR_CHECK(esp_wifi_init(&cfg));
 
-    ESP_ERROR_CHECK(esp_event_handler_instance_register(WIFI_EVENT,
-                                                        ESP_EVENT_ANY_ID,
-                                                        &wifi_event_handler,
-                                                        NULL,
-                                                        NULL));
-
-    wifi_config_t wifi_config = {0};
-    strcpy((char *)wifi_config.ap.ssid, (const char *)wifi_ssid);
-    wifi_config.ap.ssid_len = strlen((const char *)wifi_ssid);
-    wifi_config.ap.channel = wifi_chan;
-    strcpy((char *)wifi_config.ap.password, (const char *)wifi_pass);
-    wifi_config.ap.max_connection = wifi_conn;
-#ifdef CONFIG_ESP_WIFI_SOFTAP_SAE_SUPPORT
-    wifi_config.ap.authmode = WIFI_AUTH_WPA3_PSK;
-    wifi_config.ap.ssid_hidden = false;
-    wifi_config.ap.sae_pwe_h2e = WPA3_SAE_PWE_BOTH;
-#else /* CONFIG_ESP_WIFI_SOFTAP_SAE_SUPPORT */
-    wifi_config.ap.authmode = WIFI_AUTH_WPA2_PSK;
-#endif
-    wifi_config.ap.pmf_cfg.required = true;
-    
-    if (strlen((const char *)wifi_pass)== 0) {
-        wifi_config.ap.authmode = WIFI_AUTH_OPEN;
-    }
-
-    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_AP));
-    ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_AP, &wifi_config));
-    ESP_ERROR_CHECK(esp_wifi_start());
-
-    ESP_LOGI(TAG, "wifi_init_softap finished. SSID:%s password:%s channel:%d",
-             wifi_ssid, wifi_pass, wifi_chan);
-    xTcpEventGroup = xEventGroupCreate();
-
-    /* Was the event group created successfully? */
-    if( xTcpEventGroup == NULL )
-    {
-        /* The event group was not created because there was insufficient
-           FreeRTOS heap available. */
-        ESP_LOGE(TAG, "Error creating event group");
-    }
-    else
-    {
-        ESP_LOGI(TAG, "Event group was created successfully");
-        /* The event group was created. */
-    }
-}
-
-static void wifi_event_handler(void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data)
-{
-    if (event_id == WIFI_EVENT_AP_STACONNECTED) {
-        wifi_event_ap_staconnected_t* event = (wifi_event_ap_staconnected_t*) event_data;
-        ESP_LOGI(TAG, "station "MACSTR" join, AID=%d",
-                 MAC2STR(event->mac), event->aid);
-    } else if (event_id == WIFI_EVENT_AP_STADISCONNECTED) {
-        wifi_event_ap_stadisconnected_t* event = (wifi_event_ap_stadisconnected_t*) event_data;
-        set_motor(0, 0);
-        ESP_LOGI(TAG, "station "MACSTR" leave, AID=%d",
-                 MAC2STR(event->mac), event->aid);
-    }
-}
-
-static void tcp_server_task(void *pvParameters)
-{
-    char addr_str[128];
-    int addr_family = (int)pvParameters;
-    int ip_protocol = 0;
-    int keepAlive = 1;
-    int keepIdle = KEEPALIVE_IDLE;
-    int keepInterval = KEEPALIVE_INTERVAL;
-    int keepCount = KEEPALIVE_COUNT;
-    struct sockaddr_storage dest_addr;
-
-    if (addr_family == AF_INET) {
-        struct sockaddr_in *dest_addr_ip4 = (struct sockaddr_in *)&dest_addr;
-        dest_addr_ip4->sin_addr.s_addr = htonl(INADDR_ANY);
-        dest_addr_ip4->sin_family = AF_INET;
-        dest_addr_ip4->sin_port = htons(PORT);
-        ip_protocol = IPPROTO_IP;
-    }
-
-    int listen_sock = socket(addr_family, SOCK_STREAM, ip_protocol);
-    if (listen_sock < 0) {
-        ESP_LOGE(TAG, "Unable to create socket: errno %d", errno);
-        vTaskDelete(NULL);
-        return;
-    }
-    int opt = 1;
-    setsockopt(listen_sock, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
-    ESP_LOGI(TAG, "Socket created");
-
-    int err = bind(listen_sock, (struct sockaddr *)&dest_addr, sizeof(dest_addr));
-    if (err != 0) {
-        ESP_LOGE(TAG, "Socket unable to bind: errno %d", errno);
-        ESP_LOGE(TAG, "IPPROTO: %d", addr_family);
-        goto CLEAN_UP;
-    }
-    ESP_LOGI(TAG, "Socket bound, port %d", PORT);
-
-    err = listen(listen_sock, 1);
-    if (err != 0) {
-        ESP_LOGE(TAG, "Error occurred during listen: errno %d", errno);
-        goto CLEAN_UP;
-    }
-
-    while (1) {
-
-        ESP_LOGI(TAG, "Socket listening");
-
-        struct sockaddr_storage source_addr; // Large enough for both IPv4 or IPv6
-        socklen_t addr_len = sizeof(source_addr);
-        int sock = accept(listen_sock, (struct sockaddr *)&source_addr, &addr_len);
-        if (sock < 0) {
-            ESP_LOGE(TAG, "Unable to accept connection: errno %d", errno);
-            break;
-        }
-
-        // Set tcp keepalive option
-        setsockopt(sock, SOL_SOCKET, SO_KEEPALIVE, &keepAlive, sizeof(int));
-        setsockopt(sock, IPPROTO_TCP, TCP_KEEPIDLE, &keepIdle, sizeof(int));
-        setsockopt(sock, IPPROTO_TCP, TCP_KEEPINTVL, &keepInterval, sizeof(int));
-        setsockopt(sock, IPPROTO_TCP, TCP_KEEPCNT, &keepCount, sizeof(int));
-        // Convert ip address to string
-        if (source_addr.ss_family == PF_INET) {
-            inet_ntoa_r(((struct sockaddr_in *)&source_addr)->sin_addr, addr_str, sizeof(addr_str) - 1);
-        }
-        ESP_LOGI(TAG, "Socket accepted ip address: %s", addr_str);
-
-        TCP_receive(sock);
-
-        shutdown(sock, 0);
-        close(sock);
-    }
-
-CLEAN_UP:
-    close(listen_sock);
-    vTaskDelete(NULL);
-}
-
-static void TCP_receive(int sock)
+void TCP_receive(int sock)
 {
     xEventGroupSetBits( xTcpEventGroup,
                                 0x1 );
@@ -490,18 +298,3 @@ static void TCP_receive(int sock)
     //socket_active = 0;
 }
 
-void init_uart(void)
-{
-    const uart_config_t uart_config = {
-        .baud_rate = 115200,
-        .data_bits = UART_DATA_8_BITS,
-        .parity = UART_PARITY_DISABLE,
-        .stop_bits = UART_STOP_BITS_1,
-        .flow_ctrl = UART_HW_FLOWCTRL_DISABLE,
-        .source_clk = UART_SCLK_DEFAULT,
-    };
-    // We won't use a buffer for sending data.
-    uart_driver_install(UART_NUM_1, BUF_SIZE * 2, 0, 0, NULL, 0);
-    uart_param_config(UART_NUM_1, &uart_config);
-    uart_set_pin(UART_NUM_1, TXD_PIN, RXD_PIN, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
-}
