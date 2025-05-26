@@ -160,7 +160,7 @@ void calculate_control(control_t *ctrl){
     //printf("ur: %f\r\n", ctrl->ur);
     //ctrl->ur=uNM*sin(0.628*ctrl->t);
     //ctrl->ur=0.0;
-    //ctrl->ur=2.5;
+    //ctrl->ur=2.0;
     if(ctrl->ur >=uNM)
         ctrl->ur = uNM;
     else if(ctrl->ur <= (-uNM))

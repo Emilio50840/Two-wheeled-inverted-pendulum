@@ -44,38 +44,67 @@ void init_motor(){
 }
 void set_motor(int pwmA, int pwmB){
     uint8_t stby_flag = 0;
+    #ifndef INVERT_MOTOR_A
     if (pwmA > 0){
-            gpio_set_level(AIN1, 1);
-            gpio_set_level(AIN2, 0);
-        }else if (pwmA < 0){
-            gpio_set_level(AIN1, 0);
-            gpio_set_level(AIN2, 1);
-        }else{
-            gpio_set_level(AIN1, 0);
-            gpio_set_level(AIN2, 0);
-            stby_flag |= 0x1;
-        }
-        if (pwmB > 0){
-            gpio_set_level(BIN1, 1);
-            gpio_set_level(BIN2, 0);
-        }else if (pwmB < 0){
-            gpio_set_level(BIN1, 0);
-            gpio_set_level(BIN2, 1);
-        }else{
-            gpio_set_level(BIN1, 0);
-            gpio_set_level(BIN2, 0);
-            stby_flag |= 0x2;
-        }
-        /*
-        if(stby_flag == 0x3){
-            gpio_set_level(STBY_pin, 0);
-        }else{
-            gpio_set_level(STBY_pin, 1);
-        }
-        */
+        gpio_set_level(AIN1, 1);
+        gpio_set_level(AIN2, 0);
+    }else if (pwmA < 0){
+        gpio_set_level(AIN1, 0);
+        gpio_set_level(AIN2, 1);
+    }else{
+        gpio_set_level(AIN1, 0);
+        gpio_set_level(AIN2, 0);
+        stby_flag |= 0x1;
+    }
+    #else
+    if (pwmA > 0){
+        gpio_set_level(AIN1, 0);
+        gpio_set_level(AIN2, 1);
+    }else if (pwmA < 0){
+        gpio_set_level(AIN1, 1);
+        gpio_set_level(AIN2, 0);
+    }else{
+        gpio_set_level(AIN1, 0);
+        gpio_set_level(AIN2, 0);
+        stby_flag |= 0x1;
+    }
+    #endif
+
+    #ifndef INVERT_MOTOR_B
+    if (pwmB > 0){
+        gpio_set_level(BIN1, 1);
+        gpio_set_level(BIN2, 0);
+    }else if (pwmB < 0){
+        gpio_set_level(BIN1, 0);
+        gpio_set_level(BIN2, 1);
+    }else{
+        gpio_set_level(BIN1, 0);
+        gpio_set_level(BIN2, 0);
+        stby_flag |= 0x2;
+    }
+    #else
+    if (pwmB > 0){
+        gpio_set_level(BIN1, 0);
+        gpio_set_level(BIN2, 1);
+    }else if (pwmB < 0){
+        gpio_set_level(BIN1, 1);
+        gpio_set_level(BIN2, 0);
+    }else{
+        gpio_set_level(BIN1, 0);
+        gpio_set_level(BIN2, 0);
+        stby_flag |= 0x2;
+    }
+    #endif
+    /*
+    if(stby_flag == 0x3){
+        gpio_set_level(STBY_pin, 0);
+    }else{
         gpio_set_level(STBY_pin, 1);
-        ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_A, abs(pwmA));
-        ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_A);
-        ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_B, abs(pwmB));
-        ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_B);
+    }
+    */
+    gpio_set_level(STBY_pin, 1);
+    ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_A, abs(pwmA));
+    ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_A);
+    ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_B, abs(pwmB));
+    ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_B);
 }

@@ -2,11 +2,11 @@
 #include "stdio.h"
 #include "math.h"
 
-#define DEF_vd 0.075
+#define DEF_vd 0.0
 
-#define DEF_k1 0.035
+#define DEF_k1 0.04
 #define DEF_k2 1.0
-#define DEF_k3 0.7
+#define DEF_k3 0.9
 #define DEF_k4 1.6
 
 
@@ -14,7 +14,7 @@
 #define DEF_kv 0.0//0.004
 
 
-#define calpha 0.0//0.2
+#define calpha 0.07//0.2
 
 //Parámetros, rangos y factores
 #define tauM	0.3//0.3//0.1654	//par máximo en rueda [Nm]

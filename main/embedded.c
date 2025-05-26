@@ -1,6 +1,7 @@
 #include <math.h>
 #include <stdio.h>
 
+#include "driver/uart.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/idf_additions.h"
@@ -14,7 +15,7 @@
 #include "uart.h"
 #include "control.h"
 
-//#define EMBEBIDO
+#define EMBEBIDO
 
 const char TAG[] = "balancin";
 
@@ -32,7 +33,7 @@ int16_t Ax, Gy;
 uint16_t adc_read[8];
 
 void TCP_receive(const int sock);
-static void control_timer( TimerHandle_t xTimer );
+void control_task( void *pvParameters );
 
 
 
@@ -65,28 +66,11 @@ void app_main(void)
     ESP_LOGI(TAG, "Channel_%i, Channel_%i", adc1, adc2);
 
     printf("Ready to start\r\n");
+    const char msg[] ="initialized\r\n";
+    uart_write_bytes(UART_PORT, msg, sizeof(msg));
 
+    xTaskCreate(control_task, "control", 4096, NULL, 15, NULL);
     
-    /*/
-    while(1){
-        char c = getchar();
-        printf("char: %x\r\n", c);
-        vTaskDelay(pdMS_TO_TICKS(1000));
-    }
-    //*/
-
-    control_timer_h = xTimerCreate(
-        /* Text name for the software timer - not used by FreeRTOS. */
-                                     "control_proc",
-        /* The software timer's period in ticks. */
-                                     pdMS_TO_TICKS(10),
-        /* Setting uxAutoRealod to pdTRUE creates an auto-reload timer. */
-                                     pdTRUE,
-        /* This example does not use the timer id. */
-                                     0,
-        /* Callback function to be used by the software timer being created. */
-                                     control_timer );
-    xTimerStart(control_timer_h, 0);
     //calculate_control(&ctrl);
     /*
     while (1) {
@@ -110,140 +94,160 @@ void app_main(void)
     //*/
 }
 
-static void control_timer( TimerHandle_t xTimer ){
+void control_task( void *pvParameters ){
     
+    TickType_t xLastWakeTime;
 
-    //read_adc(adc_read);
-    //ESP_LOGI(TAG, "[0]: %u\t[1]: %u\t[2]: %u\t[3]: %u\t[4]: %u\t[5]: %u\t[6]: %u\t[7]: %u\t",adc_read[0] ,adc_read[1] ,adc_read[2] ,adc_read[3] ,adc_read[4] ,adc_read[5] ,adc_read[6] ,adc_read[7] );
+    const TickType_t xFrequency = pdMS_TO_TICKS(10);
 
-    int sr,sl;
-    adc_oneshot_read(ADC_unit, adc1, &sr);
-    adc_oneshot_read(ADC_unit, adc2, &sl);
-    // sr = (int)(((float)adc_read[3]*RATIO)+((float)adc_read[2]*(1-RATIO)));
-    // sl = (int)(((float)adc_read[4]*RATIO)+((float)adc_read[5]*(1-RATIO)));
-    //ESP_LOGI(TAG, "Sr=%i\tSl=%i", sr>>4, sl>>4);
-    uint8_t mpu_data[14];
-    read_mpu6050(mpu_data);
-    Ax = mpu_data[1] + (((int16_t)mpu_data[0])<<8);
-    Gy = mpu_data[11] + (((int16_t)mpu_data[10])<<8);
+    xLastWakeTime = xTaskGetTickCount();
 
-
-    read_encoder(&encoderA, &encoderB);
-
-    //printf("encA: %i\tencB: %i\tAx: %i\tGy: %i\tA[1]: %u\tA[2]:%u\r\n", encoderA, encoderB, Ax, Gy, adc_read[3], adc_read[4]);
-    ctrl.sl = (float)(sl>>4);
-    ctrl.sr = (float)(sr>>4);
-    ctrl.Ax = (float)Ax;
-    ctrl.Gy = (float)Gy;
-    ctrl.incl = (float) -encoderA;
-    ctrl.incr = (float) -encoderB;
-    //ESP_LOGI(TAG, "incr: %f\tencoderB: %i", ctrl.incr, encoderB);
-
-    uint8_t packet[9];
-    packet[0] = 0xAA;
-
-    #ifdef EMBEBIDO
-
-    
-    
-    #else
-    /*/
-    if(encoderB > 127){
-        packet[1] = 127;
-    }else if(encoderB < -128){
-        packet[1] = -128;
-    }else{
-        packet[1] = (int8_t) (encoderB);
-    }
-    //*/
-    if(encoderB > 127){
-        packet[1] = 255;
-    }else if(encoderB < -128){
-        packet[1] = 0;
-    }else{
-        packet[1] = (int8_t) (encoderB + 127);
-    }
-    /*/
-    if(encoderA > 127){
-        packet[2] = 127;
-    }else if(encoderA < -128){
-        packet[2] = -128;
-    }else{
-        packet[2] = (int8_t) (encoderA);
-    }
-    //*/
-    if(encoderA > 127){
-        packet[2] = 255;
-    }else if(encoderA < -128){
-        packet[2] = 0;
-    }else{
-        packet[2] = (int8_t) (encoderA + 127);
-    }
-    //*/
-    //packet[2] = (int8_t) (encoderA);
-    packet[3] = mpu_data[0];
-    packet[4] = mpu_data[1];
-    packet[5] = mpu_data[10];
-    packet[6] = mpu_data[11];
-    packet[7] = (uint8_t)(adc_read[3]>>2);
-    packet[8] = (uint8_t)(adc_read[4]>>2);
-    //packet[7] = (uint8_t)(sr>>2);
-    //packet[8] = (uint8_t)(sl>>2);
-    #endif
-    
-    if(xEventGroupGetBits(xTcpEventGroup) & 0x1){
-        calculate_control(&ctrl);
-        packet[1] = ctrl.vdg;
-        packet[2] = ctrl.vg;
-        packet[3] = ctrl.thetag;
-        packet[4] = ctrl.alphag;
-        packet[5] = ctrl.omegalg;
-        packet[6] = ctrl.omegarg;
-        packet[7] = ctrl.ulg;
-        packet[8] = ctrl.urg;
-        set_motor(ctrl.uWl, ctrl.uWr);
+    for (; ;) {
         
-        int to_write = 9;
-        while (to_write > 0) {
-            int written = send(connection_sock, packet + (PACKET_SIZE - to_write), to_write, 0);
-            if (written < 0) {
-                ESP_LOGE(TAG, "Error occurred during sending: errno %d", errno);
-                break;
-                // Failed to retransmit, giving up
-            }
-            to_write -= written;
-        }
-    }else {
-        set_motor(0, 0);
-        init_control(&ctrl);
-    }
-    uart_write_bytes(UART_PORT, packet, sizeof(packet));
-    
-    
-    //vTaskDelay(pdMS_TO_TICKS(5));
-    //printf("Alpha: %f\tTheta: %f\tuWl: %f\tuWr: %f\til: %f\tir: %f\r\n",ctrl.alpha, ctrl.theta, ctrl.uWl, ctrl.uWr, ctrl.incl, ctrl.incr);
-    
-    uint8_t rx_buffer[32];
-    int rxBytes = uart_read_bytes(UART_PORT, rx_buffer, sizeof(rx_buffer), 5);
-#ifndef EMBEBIDO
+        
+        //read_adc(adc_read);
+        //ESP_LOGI(TAG, "[0]: %u\t[1]: %u\t[2]: %u\t[3]: %u\t[4]: %u\t[5]: %u\t[6]: %u\t[7]: %u\t",adc_read[0] ,adc_read[1] ,adc_read[2] ,adc_read[3] ,adc_read[4] ,adc_read[5] ,adc_read[6] ,adc_read[7] );
 
-    int pwmA, pwmB;
-    if (rxBytes >= 2) {
-        if(rx_buffer[0] > 128){
-            pwmA = -(rx_buffer[rxBytes-2] - 128);
-        }else{
-            pwmA = rx_buffer[0];
+        int sr,sl;
+        adc_oneshot_read(ADC_unit, adc1, &sr);
+        adc_oneshot_read(ADC_unit, adc2, &sl);
+        // sr = (int)(((float)adc_read[3]*RATIO)+((float)adc_read[2]*(1-RATIO)));
+        // sl = (int)(((float)adc_read[4]*RATIO)+((float)adc_read[5]*(1-RATIO)));
+        //ESP_LOGI(TAG, "Sr=%i\tSl=%i", sr>>4, sl>>4);
+        uint8_t mpu_data[14];
+        read_mpu6050(mpu_data);
+        Ax = mpu_data[1] + (((int16_t)mpu_data[0])<<8);
+        Gy = mpu_data[11] + (((int16_t)mpu_data[10])<<8);
+
+
+        read_encoder(&encoderA, &encoderB);
+
+        //printf("encA: %i\tencB: %i\tAx: %i\tGy: %i\tA[1]: %u\tA[2]:%u\r\n", encoderA, encoderB, Ax, Gy, adc_read[3], adc_read[4]);
+        ctrl.sl = (float)(sl>>4);
+        ctrl.sr = (float)(sr>>4);
+        ctrl.Ax = (float)Ax;
+        ctrl.Gy = (float)Gy;
+        ctrl.incl = (float) encoderA;
+        ctrl.incr = (float) encoderB;
+        //ESP_LOGI(TAG, "incr: %f\tencoderB: %i", ctrl.incr, encoderB);
+
+        uint8_t packet[9];
+        packet[0] = 0xAA;
+
+        #ifdef EMBEBIDO
+
+        if(xEventGroupGetBits(xTcpEventGroup) & 0x1){
+            calculate_control(&ctrl);
+            packet[1] = ctrl.vdg;
+            packet[2] = ctrl.vg;
+            packet[3] = ctrl.thetag;
+            packet[4] = ctrl.alphag;
+            packet[5] = ctrl.omegalg;
+            packet[6] = ctrl.omegarg;
+            packet[7] = ctrl.ulg;
+            packet[8] = ctrl.urg;
+            set_motor(ctrl.uWl, ctrl.uWr);
+            
+            int to_write = 9;
+            while (to_write > 0) {
+                int written = send(connection_sock, packet + (PACKET_SIZE - to_write), to_write, 0);
+                if (written < 0) {
+                    ESP_LOGE(TAG, "Error occurred during sending: errno %d", errno);
+                    break;
+                    // Failed to retransmit, giving up
+                }
+                to_write -= written;
+            }
+        }else {
+            set_motor(0, 0);
+            init_control(&ctrl);
         }
-        if(rx_buffer[1] > 128){
-            pwmB = -(rx_buffer[rxBytes-1] - 128);
+        uart_write_bytes(UART_PORT, packet, sizeof(packet));
+        
+        
+        #else
+        //*/
+        if(encoderB > 127){
+            packet[2] = 127;
+        }else if(encoderB < -128){
+            packet[2] = -128;
         }else{
-            pwmB = rx_buffer[1];
+            packet[2] = (int8_t) (encoderB);
         }
-        set_motor(pwmA, pwmB);
-    }else {
-        set_motor(0, 0);
+        /*/
+        if(encoderB > 127){
+            packet[1] = 255;
+        }else if(encoderB < -128){
+            packet[1] = 0;
+        }else{
+            packet[1] = (int8_t) (encoderB + 127);
+        }
+        /*/
+        if(encoderA > 127){
+            packet[1] = 127;
+        }else if(encoderA < -128){
+            packet[1] = -128;
+        }else{
+            packet[1] = (int8_t) (encoderA);
+        }
+        /*/
+        if(encoderA > 127){
+            packet[2] = 255;
+        }else if(encoderA < -128){
+            packet[2] = 0;
+        }else{
+            packet[2] = (int8_t) (encoderA + 127);
+        }
+        //*/
+        packet[3] = mpu_data[0];
+        packet[4] = mpu_data[1];
+        packet[5] = mpu_data[10];
+        packet[6] = mpu_data[11];
+        packet[7] = (uint8_t)(sr>>4);
+        packet[8] = (uint8_t)(sl>>4);
+        if(xEventGroupGetBits(xTcpEventGroup) & 0x1){
+            int to_write = 9;
+            while (to_write > 0) {
+                int written = send(connection_sock, packet + (PACKET_SIZE - to_write), to_write, 0);
+                if (written < 0) {
+                    ESP_LOGE(TAG, "Error occurred during sending: errno %d", errno);
+                    break;
+                    // Failed to retransmit, giving up
+                }
+                to_write -= written;
+            }
+        }else {
+            uart_write_bytes(UART_PORT, packet, sizeof(packet));
+            uint8_t rx_buffer[32];
+            int rxBytes = uart_read_bytes(UART_PORT, rx_buffer, sizeof(rx_buffer), pdMS_TO_TICKS(10));
+            int pwmA, pwmB;
+            if (rxBytes >= 2) {
+                uart_write_bytes(UART_PORT, "written\r\n", 10);
+                if(rx_buffer[1] > 128){
+                    pwmA = -(rx_buffer[rxBytes-2] - 128);
+                }else{
+                    pwmA = rx_buffer[0];
+                }
+                if(rx_buffer[0] > 128){
+                    pwmB = -(rx_buffer[rxBytes-1] - 128);
+                }else{
+                    pwmB = rx_buffer[1];
+                }
+                set_motor(pwmA, pwmB);
+            }else {
+                set_motor(0, 0);
+            }
+        }
+        
+        #endif
+        
+
+        //printf("Alpha: %f\tTheta: %f\tuWl: %f\tuWr: %f\til: %f\tir: %f\r\n",ctrl.alpha, ctrl.theta, ctrl.uWl, ctrl.uWr, ctrl.incl, ctrl.incr);
+
+
+        vTaskDelayUntil( &xLastWakeTime, xFrequency );
+
     }
-#endif 
     
 }
 
@@ -251,6 +255,7 @@ static void control_timer( TimerHandle_t xTimer ){
 
 void TCP_receive(int sock)
 {
+    
     xEventGroupSetBits( xTcpEventGroup,
                                 0x1 );
     
@@ -277,12 +282,12 @@ void TCP_receive(int sock)
             //*/
 #ifndef EMBEBIDO
             int pwmA, pwmB;
-            if(rx_buffer[0] > 128){
+            if(rx_buffer[1] > 128){
                 pwmA = -(rx_buffer[0] - 128);
             }else{
                 pwmA = rx_buffer[0];
             }
-            if(rx_buffer[1] > 128){
+            if(rx_buffer[0] > 128){
                 pwmB = -(rx_buffer[1] - 128);
             }else{
                 pwmB = rx_buffer[1];

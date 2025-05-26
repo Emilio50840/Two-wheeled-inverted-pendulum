@@ -60,7 +60,7 @@ void init_mpu6050(){
 }
 void read_mpu6050(uint8_t data[14]){
     data_wr[0] = 0x3B;
-    i2c_master_transmit_receive(dev_handle, data_wr, 1, data, 14, 2);
+    i2c_master_transmit_receive(dev_handle, data_wr, 1, data, 14, 1);
     //*Ax = data_rd[1] + (((int16_t)data_rd[0])<<8);
     //*Gy = data_rd[11] + (((int16_t)data_rd[10])<<8);
 }

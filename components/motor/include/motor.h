@@ -9,8 +9,8 @@
 
 static const char motor_tag[] = "motor";
 
-//#define INVERT_MOTOR_A
-//#define INVERT_MOTOR_B
+#define INVERT_MOTOR_A
+#define INVERT_MOTOR_B
 
 #define PWMA_pin 32
 #define AIN1     33

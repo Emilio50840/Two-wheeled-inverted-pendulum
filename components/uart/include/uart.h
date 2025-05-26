@@ -3,8 +3,8 @@
 
 #include "driver/uart.h"
 
-#define TXD_PIN (22)
-#define RXD_PIN (23)
+#define TXD_PIN (23)
+#define RXD_PIN (22)
 
 #define UART_PORT UART_NUM_1
 #define UART_BAUDRATE 115200
