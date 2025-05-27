@@ -12,32 +12,32 @@
 #define BUF_SIZE 16
 
 // Constants and definitions
-#define k1                 0.04
-#define k2                 1.0
-#define k3                 0.9
-#define k4                 1.6
+#define k1                 0.1096
+#define k2                 0.9221
+#define k3                 0.7556
+#define k4                 1.1476
 
-#define kp                 0.0
-#define kv                 0.0
+#define kp                 0.08
+#define kv                 0.008
 
 #define vd 0.0  
-#define tauM 0.3
-#define alphaM 1.4
-#define omegaM 20.0
-#define uM 11.0
-#define uNM 11.0
+#define tauM 0.1654
+#define alphaM 1.5
+#define omegaM 13.0
+#define uM 12.0
+#define uNM 12.0
 #define Ts 0.01
-#define ppr 48.0
+#define ppr 10.0
 #define pi_ 3.141593
 #define pi_s2 1.570796
 #define Ra 3.0
 #define NR 34.0
 #define R 0.0335
 #define km 0.0008
-#define Cz 0.0485
-#define Mp 0.4580
-#define b 0.098
-#define calpha 0.07
+#define Cz 0.0992
+#define Mp 0.3730
+#define b 0.09
+#define calpha 0.145
 #define deg_2_rad (pi_/180)
 #define rad_2_deg (180/pi_)
 #define accel_div_factor 16384.0
@@ -185,13 +185,13 @@ int main() {
                     ul = taul * Rasnkm + nkm * omegal;
 		            //ul=uNM*sin(6.28*t);
                     //ul=uNM*sin(0.628*t);
-                    ul = 5.0;
+                    //ul = 5.0;
                     ul = fmax(fmin(ul, uNM), -uNM);
                     uWl = v_to_pwm(ul);
 
                     ur = taur * Rasnkm + nkm * omegar;
-		            ur=uNM*sin(6.28*t);
-                    ur=uNM*sin(0.628*t);
+		            //ur=uNM*sin(6.28*t);
+                    //ur=uNM*sin(0.628*t);
                     ur = fmax(fmin(ur, uNM), -uNM);
                     uWr = v_to_pwm(ur);
 		    //*/

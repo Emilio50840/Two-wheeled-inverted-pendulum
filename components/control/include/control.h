@@ -2,38 +2,38 @@
 #include "stdio.h"
 #include "math.h"
 
-#define DEF_vd 0.0
+#define DEF_vd 0.15
 
-#define DEF_k1 0.07
-#define DEF_k2 1.2
-#define DEF_k3 0.9
-#define DEF_k4 1.6
-
-
-#define DEF_kp 0.0//0.04
-#define DEF_kv 0.0//0.004
+#define DEF_k1 0.1096//0.07
+#define DEF_k2 0.9221//1.2
+#define DEF_k3 0.7556//0.9
+#define DEF_k4 1.1476//1.6
 
 
-#define calpha 0.07//0.2
+#define DEF_kp 0.08//0.04
+#define DEF_kv 0.008//0.004
+
+
+#define calpha 0.145//0.2
 
 //Parámetros, rangos y factores
-#define tauM	0.3//0.3//0.1654	//par máximo en rueda [Nm]
-#define alphaM	1.4//1.57
-#define omegaM	20.0
-#define uM		11.0
-#define uNM		11.0
+#define tauM	0.1654//0.3//0.1654	//par máximo en rueda [Nm]
+#define alphaM	1.5//1.57
+#define omegaM	13.0
+#define uM		12.0
+#define uNM		12.0
 
 #define Ts      0.01
-#define ppr     48.0
+#define ppr     10.0
 #define pi_     3.141593
 #define pi_s2   1.570796
 #define Ra      3.0
 #define NR      34.0//34.0//15.5//34.014
 #define R	    0.0335//0.033
 #define km      0.0008//0.01186
-#define Cz	    0.0936//0.0485
-#define Mp	    0.3//0.4310//0.4580
-#define b	    0.098//0.0965
+#define Cz	    0.0992//0.0485
+#define Mp	    0.3730//0.4310//0.4580
+#define b	    0.09//0.0965
 
 #define deg_2_rad 			(pi_ / 180.0)
 #define rad_2_deg 			(180.0 / pi_)

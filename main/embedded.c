@@ -2,6 +2,7 @@
 #include <stdio.h>
 
 #include "driver/uart.h"
+#include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/idf_additions.h"
@@ -111,6 +112,7 @@ void control_task( void *pvParameters ){
         int sr,sl;
         adc_oneshot_read(ADC_unit, adc1, &sr);
         adc_oneshot_read(ADC_unit, adc2, &sl);
+        //ESP_LOGI(TAG, "ADC: %i\t%i",sl>>4, sr>>4);
         // sr = (int)(((float)adc_read[3]*RATIO)+((float)adc_read[2]*(1-RATIO)));
         // sl = (int)(((float)adc_read[4]*RATIO)+((float)adc_read[5]*(1-RATIO)));
         //ESP_LOGI(TAG, "Sr=%i\tSl=%i", sr>>4, sl>>4);

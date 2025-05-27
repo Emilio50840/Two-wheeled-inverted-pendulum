@@ -6,3 +6,4 @@ sdkconfig
 sdkconfig.old
 test/non-embedded-controller/linux/uart/control
 test/non-embedded-controller/linux/uart/datos.txt
+test/non-embedded-controller/linux/wifi/a.out
