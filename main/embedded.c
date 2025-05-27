@@ -15,7 +15,7 @@
 #include "uart.h"
 #include "control.h"
 
-#define EMBEBIDO
+//#define EMBEBIDO
 
 const char TAG[] = "balancin";
 
@@ -69,7 +69,7 @@ void app_main(void)
     const char msg[] ="initialized\r\n";
     uart_write_bytes(UART_PORT, msg, sizeof(msg));
 
-    xTaskCreate(control_task, "control", 4096, NULL, 15, NULL);
+    xTaskCreatePinnedToCore(control_task, "control", 4096, NULL, 15, NULL, 1);
     
     //calculate_control(&ctrl);
     /*
@@ -218,22 +218,13 @@ void control_task( void *pvParameters ){
             }
         }else {
             uart_write_bytes(UART_PORT, packet, sizeof(packet));
-            uint8_t rx_buffer[32];
+            int8_t rx_buffer[2];
+            uart_flush_input(UART_PORT);
             int rxBytes = uart_read_bytes(UART_PORT, rx_buffer, sizeof(rx_buffer), pdMS_TO_TICKS(10));
-            int pwmA, pwmB;
+            
             if (rxBytes >= 2) {
-                uart_write_bytes(UART_PORT, "written\r\n", 10);
-                if(rx_buffer[1] > 128){
-                    pwmA = -(rx_buffer[rxBytes-2] - 128);
-                }else{
-                    pwmA = rx_buffer[0];
-                }
-                if(rx_buffer[0] > 128){
-                    pwmB = -(rx_buffer[rxBytes-1] - 128);
-                }else{
-                    pwmB = rx_buffer[1];
-                }
-                set_motor(pwmA, pwmB);
+                printf("pwm:%i,%i\r\n", rx_buffer[0], rx_buffer[1]);
+                set_motor((int8_t)rx_buffer[1], (int8_t)rx_buffer[0]);
             }else {
                 set_motor(0, 0);
             }

@@ -4,8 +4,8 @@
 
 #define DEF_vd 0.0
 
-#define DEF_k1 0.04
-#define DEF_k2 1.0
+#define DEF_k1 0.07
+#define DEF_k2 1.2
 #define DEF_k3 0.9
 #define DEF_k4 1.6
 

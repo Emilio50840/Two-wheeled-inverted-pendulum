@@ -2,3 +2,7 @@ compile_commands.json
 build/*
 .vscode/*
 .cache/*
+sdkconfig
+sdkconfig.old
+test/non-embedded-controller/linux/uart/control
+test/non-embedded-controller/linux/uart/datos.txt
